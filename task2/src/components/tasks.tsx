@@ -17,7 +17,7 @@ const TasksPage: React.FC = () => {
       setError(null);
       try {
         const response = await fetch(
-          `http://localhost:3000/api/tasks?status=done&limit=10${
+          `http://localhost:3000/api/tasks?status=done&limit=10&page=2${
             query ? `&search=${encodeURIComponent(query)}` : ""
           }`
         );

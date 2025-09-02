@@ -1,5 +1,5 @@
 import express from 'express';
-import Task from '../models/Task.js';
+import Task from './model.js';
 import { query, validationResult } from 'express-validator';
 
 const router = express.Router();
@@ -9,10 +9,10 @@ const validateQuery = [
     .optional()
     .isInt({ min: 1, max: 50 })
     .withMessage('Limit must be an integer between 1 and 50'),
-  query('skip')
+  query('page')
     .optional()
-    .isInt({ min: 0 })
-    .withMessage('Skip must be a non-negative integer'),
+    .isInt({ min: 1 })
+    .withMessage('Page must be an integer greater than 0'),
   query('status')
     .optional()
     .isIn(['todo', 'doing', 'done'])
@@ -31,22 +31,35 @@ router.get(
         return next(error);
       }
 
-      const { limit = 10, skip = 0, status } = req.query;
+      const { limit = 10, page = 1, status } = req.query;
 
-      const query = status ? { status } : {};
+      const parsedLimit = parseInt(limit);
+      const parsedPage = parseInt(page);
+      const skip = (parsedPage - 1) * parsedLimit;
 
-      const tasks = await Task.find(query)
-        .select('title status priority createdAt')
-        .sort({ createdAt: -1 })
-        .skip(parseInt(skip))
-        .limit(parseInt(limit))
-        .lean();
+      const filter = status ? { status } : {};
 
-      const nextSkip = tasks.length === parseInt(limit) ? parseInt(skip) + parseInt(limit) : null;
+      const [tasks, totalCount] = await Promise.all([
+        Task.find(filter)
+          .select('title status priority createdAt')
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(parsedLimit)
+          .lean(),
+        Task.countDocuments(filter),
+      ]);
+
+      const totalPages = Math.ceil(totalCount / parsedLimit);
 
       res.json({
         items: tasks,
-        nextSkip,
+        pagination: {
+          currentPage: parsedPage,
+          totalPages,
+          totalItems: totalCount,
+          hasNextPage: parsedPage < totalPages,
+          hasPrevPage: parsedPage > 1,
+        },
       });
     } catch (err) {
       next(err);
