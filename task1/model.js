@@ -7,7 +7,6 @@ const taskSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
-// Index for efficient pagination and filtering
 taskSchema.index({ createdAt: -1, status: 1 });
 
 export default mongoose.model('Task', taskSchema);
